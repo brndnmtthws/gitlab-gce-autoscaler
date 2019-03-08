@@ -13,7 +13,7 @@ requires = [
 
 setuptools.setup(
     name="gitlab-gce-autoscaler",
-    version="0.1.0",
+    version="0.1.1",
     author="Brenden Matthews",
     author_email="brenden@diddyinc.com",
     description="Very simple autoscaler for GCE instance groups & GitLab CI",
