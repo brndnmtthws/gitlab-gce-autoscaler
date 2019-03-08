@@ -103,6 +103,7 @@ def main(project_id, gce_zone, gce_instance_group_name, job_filter, interval, gi
                 len(pending_jobs),
                 len(running_jobs),
             ))
+
             desired_slots = sum([len(running_jobs), len(pending_jobs)])
             if desired_slots == 0 and len(created_jobs) > 0:
                 desired_slots = slots_per_instance
