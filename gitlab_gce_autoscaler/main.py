@@ -44,7 +44,7 @@ def resize_if_needed(compute, project_id, gce_zone,
         scale_to = desired_slots // slots_per_instance
         click.echo(
             'Target size is less than desired_slots // slots_per_instance, scaling up to {}'.format(scale_to))
-    elif desired_slots == 0:
+    elif desired_slots == 0 and targetSize > 0:
         scale_to = 0
         click.echo('Desired slots is 0, scaling to 0')
 
