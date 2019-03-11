@@ -75,43 +75,48 @@ def main(project_id, gce_zone, gce_instance_group_name, job_filter, interval, gi
     gl_job_filter = job_filter.split(',')
 
     while True:
-        for gl_project_id in gl_projects:
+        try:
+            for gl_project_id in gl_projects:
+                click.echo(
+                    'Fetching GitLab jobs for gl_project_id={}'.format(gl_project_id))
+                jobs_len = 100
+                page = 1
+                jobs = []
+                while jobs_len == 100:
+                    r = requests.get(
+                        gl_url + '/{}/jobs'.format(gl_project_id),
+                        headers=gl_headers,
+                        params={'per_page': '100', 'page': page, 'scope[]': ['created', 'running', 'pending']})
+                    r.raise_for_status()
+                    job_result = r.json()
+                    jobs_len = len(job_result)
+                    jobs.extend(job_result)
+                    page += 1
+
+                running_jobs = list(
+                    filter(lambda job: job['status'] == 'running' and apply_job_filter(job, gl_job_filter), jobs))
+                pending_jobs = list(
+                    filter(lambda job: job['status'] == 'pending' and apply_job_filter(job, gl_job_filter), jobs))
+                created_jobs = list(
+                    filter(lambda job: job['status'] == 'created' and apply_job_filter(job, gl_job_filter), jobs))
+
+                click.echo('Job queue lengths: created={}, pending={}, running={}'.format(
+                    len(created_jobs),
+                    len(pending_jobs),
+                    len(running_jobs),
+                ))
+
+                desired_slots = sum([len(running_jobs), len(pending_jobs)])
+                if desired_slots == 0 and len(created_jobs) > 0:
+                    desired_slots = slots_per_instance
+
+                click.echo('desired_slots={}'.format(desired_slots))
+
+                resize_if_needed(compute, project_id, gce_zone,
+                                 gce_instance_group_name, desired_slots, slots_per_instance)
+        except requests.exceptions.HTTPError as e:
             click.echo(
-                'Fetching GitLab jobs for gl_project_id={}'.format(gl_project_id))
-            jobs_len = 100
-            page = 1
-            jobs = []
-            while jobs_len == 100:
-                r = requests.get(
-                    gl_url + '/{}/jobs'.format(gl_project_id),
-                    headers=gl_headers,
-                    params={'per_page': '100', 'page': page, 'scope[]': ['created', 'running', 'pending']})
-                job_result = r.json()
-                jobs_len = len(job_result)
-                jobs.extend(job_result)
-                page += 1
-
-            running_jobs = list(
-                filter(lambda job: job['status'] == 'running' and apply_job_filter(job, gl_job_filter), jobs))
-            pending_jobs = list(
-                filter(lambda job: job['status'] == 'pending' and apply_job_filter(job, gl_job_filter), jobs))
-            created_jobs = list(
-                filter(lambda job: job['status'] == 'created' and apply_job_filter(job, gl_job_filter), jobs))
-
-            click.echo('Job queue lengths: created={}, pending={}, running={}'.format(
-                len(created_jobs),
-                len(pending_jobs),
-                len(running_jobs),
-            ))
-
-            desired_slots = sum([len(running_jobs), len(pending_jobs)])
-            if desired_slots == 0 and len(created_jobs) > 0:
-                desired_slots = slots_per_instance
-
-            click.echo('desired_slots={}'.format(desired_slots))
-
-            resize_if_needed(compute, project_id, gce_zone,
-                             gce_instance_group_name, desired_slots, slots_per_instance)
+                'Caught an exception (server returned {}'.format(e.status_code))
 
         time.sleep(interval)
 
