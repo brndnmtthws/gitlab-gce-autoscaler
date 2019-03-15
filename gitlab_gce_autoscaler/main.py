@@ -2,6 +2,8 @@
 
 import click
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import time
 import sys
 import googleapiclient.discovery
@@ -56,6 +58,21 @@ def resize_if_needed(compute, project_id, gce_zone,
         wait_for_operation(compute, project_id, gce_zone, result['name'])
 
 
+def requests_retry_session(retries=5, backoff_factor=0.5, status_forcelist=(429, 500, 502, 504), session=None):
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+
 @click.command()
 @click.option('--project-id', default="my-project", help='GCE project ID')
 @click.option('--gce-zone', default="us-central1-a", help='GCE zone')
@@ -83,10 +100,11 @@ def main(project_id, gce_zone, gce_instance_group_name, job_filter, interval, gi
                 page = 1
                 jobs = []
                 while jobs_len == 100:
-                    r = requests.get(
+                    r = requests_retry_session().get(
                         gl_url + '/{}/jobs'.format(gl_project_id),
                         headers=gl_headers,
                         params={'per_page': '100', 'page': page, 'scope[]': ['created', 'running', 'pending']})
+
                     r.raise_for_status()
                     job_result = r.json()
                     jobs_len = len(job_result)
@@ -114,9 +132,9 @@ def main(project_id, gce_zone, gce_instance_group_name, job_filter, interval, gi
 
                 resize_if_needed(compute, project_id, gce_zone,
                                  gce_instance_group_name, desired_slots, slots_per_instance)
-        except requests.exceptions.HTTPError as e:
+        except requests.exceptions.RequestException as e:
             click.echo(
-                'Caught an exception (server returned {}'.format(e.status_code))
+                'Caught an exception: {}'.format(e))
 
         time.sleep(interval)
 
