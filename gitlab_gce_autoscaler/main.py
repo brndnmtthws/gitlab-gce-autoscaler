@@ -78,7 +78,7 @@ def requests_retry_session(retries=5, backoff_factor=0.5, status_forcelist=(429,
 @click.option('--gce-zone', default="us-central1-a", help='GCE zone')
 @click.option('--gce-instance-group-name', required=True, help="Name of GCE instance group")
 @click.option('--job-filter', default="", help='Filter job names by this comma separated list of keywords')
-@click.option('--interval', default=15, help='Interval (in seconds) to poll GitLab API')
+@click.option('--interval', default=30, help='Interval (in seconds) to poll GitLab API')
 @click.option('--gitlab-project-ids', required=True, help="Comma separate list of GitLab projects IDs to poll for jobs")
 @click.option('--gitlab-personal-token', required=True, help="GitLab API token")
 @click.option('--slots-per-instance', default=1, help='Target number of slots per instance')
